@@ -1,0 +1,30 @@
+# requirements.txt — dependencias pip para el entorno Conda local y la imagen Docker
+
+python-dotenv>=1.0.0      # carga .env en os.environ
+duckdb>=1.1               # motor SQL embebido para validaciones locales
+polars>=1.30              # Bronze/Silver layers
+pyarrow>=14.0             # soporte Parquet
+pandas>=2.0               # pipeline ETL principal y Gold layer
+numpy>=1.26               # dependencia numérica base
+openpyxl>=3.1             # Excel .xlsx
+xlrd>=2.0                 # Excel .xls binario (SAEH legacy de la SSA)
+lxml>=5.0                 # HTML-as-XLS de portales DGIS y parser HTML para scraping
+beautifulsoup4>=4.12      # parseo HTML del portal SINAIS para descubrimiento de links
+fastexcel>=0.16           # engine calamine para polars.read_excel
+python-calamine>=0.2.0    # soporte adicional de lectura Excel
+
+# ── PostgreSQL — Data Warehouse Star Schema ────────────────────────────────────
+sqlalchemy>=2.0           # ORM/Core para UPSERT dimensional
+alembic>=1.13             # migraciones versionadas del schema
+psycopg[binary]>=3.1      # driver PostgreSQL 3.x con binarios embebidos
+
+# ── Ciencia de Datos ──────────────────────────────────────────────────────────
+scikit-learn>=1.3         # feature engineering y modelos de regresión
+rapidfuzz>=3.0            # fuzzy matching para entity resolution
+lightgbm>=4.3             # regresor de alto rendimiento (predicción de estancia)
+
+# ── Orquestación — Dagster ────────────────────────────────────────────────────
+pydantic>=2.5.0           # Fix for dagster.components BaseModel/TypeAdapter import error
+dagster==1.13.2
+dagster-webserver==1.13.2
+dagster-postgres==0.29.2

@@ -1,0 +1,122 @@
+# platform/orchestration/docker-compose.yml
+# ──────────────────────────────────────────
+# PostgreSQL 16 local + Dagster OSS + PgAdmin 4 para SaludMX Analytics Pipeline.
+#
+# Uso desde la raíz del proyecto:
+#   docker compose --env-file .env -f platform/orchestration/docker-compose.yml up -d --build
+#   docker compose logs -f postgres         # verificar healthcheck
+#   docker compose down                     # detener (data persiste en volumen)
+#   docker compose down -v                  # detener y BORRAR toda la data (!)
+#
+# Dagster UI:  http://localhost:3000
+# PgAdmin  4:  http://localhost:5050  (admin@saludmx.org / adminpass)
+# Postgres:    localhost:5432  DB=saludmx_dw
+
+x-dagster-common: &dagster-common
+  build:
+    context: ../..
+    dockerfile: platform/orchestration/dagster/Dockerfile
+  working_dir: /opt/dagster/app
+  env_file:
+    - ../../.env
+  environment:
+    DAGSTER_HOME: /opt/dagster/dagster_home
+    DAGSTER_POSTGRES_HOST: postgres
+    DAGSTER_POSTGRES_DB: ${DAGSTER_POSTGRES_DB:-saludmx_dagster}
+    PYTHONPATH: /opt/dagster/app
+    DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-saludmx_user}:${POSTGRES_PASSWORD:-saludmx_pass}@postgres:5432/${POSTGRES_DB:-saludmx_dw}
+    SSA_DATA_DIR: /opt/saludmx/data_raw
+    PIPELINE_LOGS_DIR: /opt/saludmx/logs
+  volumes:
+    - type: bind
+      source: ../..
+      target: /opt/dagster/app
+    - type: bind
+      source: '${SSA_DATA_DIR:-C:\VSCode\clinical_data_project\data_raw}'
+      target: /opt/saludmx/data_raw
+      read_only: true
+    - type: bind
+      source: '${PIPELINE_LOGS_DIR:-C:\VSCode\clinical_data_project\logs}'
+      target: /opt/saludmx/logs
+    - dagster_storage:/opt/dagster/dagster_home/storage
+  depends_on:
+    postgres:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: saludmx_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saludmx_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saludmx_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-saludmx_dw}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-saludmx_user} -d ${POSTGRES_DB:-saludmx_dw}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: saludmx_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@saludmx.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-adminpass}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  dagster_code_server:
+    <<: *dagster-common
+    container_name: saludmx_dagster_code_server
+    command:
+      - /bin/sh
+      - -c
+      - python platform/orchestration/dagster/bootstrap.py && dagster api grpc -h 0.0.0.0 -p 4000 -f platform/orchestration/dagster/definitions.py
+
+  dagster_webserver:
+    <<: *dagster-common
+    container_name: saludmx_dagster_webserver
+    command:
+      - /bin/sh
+      - -c
+      - python platform/orchestration/dagster/bootstrap.py && dagster-webserver -h 0.0.0.0 -p 3000 -w /opt/dagster/app/platform/orchestration/dagster/workspace.yaml
+    ports:
+      - "${DAGSTER_WEBSERVER_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dagster_code_server:
+        condition: service_started
+
+  dagster_daemon:
+    <<: *dagster-common
+    container_name: saludmx_dagster_daemon
+    command:
+      - /bin/sh
+      - -c
+      - python platform/orchestration/dagster/bootstrap.py && dagster-daemon run -w /opt/dagster/app/platform/orchestration/dagster/workspace.yaml
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dagster_code_server:
+        condition: service_started
+
+volumes:
+  postgres_data:
+    name: saludmx_postgres_data
+  dagster_storage:
+    name: saludmx_dagster_storage

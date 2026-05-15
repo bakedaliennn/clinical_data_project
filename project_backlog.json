@@ -1,0 +1,133 @@
+[
+  {
+    "id": "SMX-01",
+    "title": "Aislamiento del Entorno de Desarrollo con Docker Compose",
+    "milestone": "Milestone 1: Ingesta y Aislamiento Docker",
+    "priority": "Alta",
+    "status": "Pendiente",
+    "description": "Configurar y orquestar el entorno de servicios locales que soportará el DW PostgreSQL 15, PgAdmin 4 para administración visual, y el servidor/demonio de orquestación Dagster.",
+    "subtasks": [
+      "Crear archivo docker-compose.yml con servicios postgres, pgadmin y dagster-webserver.",
+      "Configurar volúmenes persistentes para evitar pérdidas de datos en reinicios de contenedores.",
+      "Definir variables de entorno seguras para credenciales de Postgres.",
+      "Probar conectividad local inicial usando PgAdmin."
+    ],
+    "estimated_hours": 4
+  },
+  {
+    "id": "SMX-02",
+    "title": "Configuración del Pipeline de Ingesta en Dagster",
+    "milestone": "Milestone 1: Ingesta y Aislamiento Docker",
+    "priority": "Alta",
+    "status": "Pendiente",
+    "description": "Establecer la estructura de directorios del proyecto y desarrollar el asset de extracción inicial en Dagster para conectarse a las fuentes de datos (SAEH y CLUES CSV) configurando la lectura de encodings heredados (Latin-1).",
+    "subtasks": [
+      "Definir estructura de carpetas: /data_raw, /src/assets, /src/pipelines.",
+      "Desarrollar el asset 'raw_saeh_data' con codificación 'latin-1' y low_memory=False.",
+      "Desarrollar el asset 'raw_clues_catalog' controlando los tipos de datos a cadenas (str) para evitar truncamiento previo de códigos.",
+      "Generar metadatos informativos (recuento de filas, columnas detectadas) legibles en el Dagster UI."
+    ],
+    "estimated_hours": 6
+  },
+  {
+    "id": "SMX-03",
+    "title": "Normalización de Encodings e Imputación de Nulos en SAEH",
+    "milestone": "Milestone 2: Limpieza y Normalización Canónica",
+    "priority": "Alta",
+    "status": "Pendiente",
+    "description": "Asegurar que todas las columnas de texto sean decodificadas y codificadas a UTF-8 estándar, eliminando acentos/diéresis. Identificar y reemplazar de forma canónica los códigos de nulos implícitos de la Secretaría de Salud ('NE', '99', ' ') por nulos reales (NaN/None).",
+    "subtasks": [
+      "Implementar función de normalización NFKD para eliminar acentos y convertir textos a mayúsculas.",
+      "Generar mapeo de valores 'No Especificado' o equivalentes por columna categórica.",
+      "Sanitizar columnas numéricas críticas (edad, días de estancia, horas de estancia) asegurando conversión limpia a tipo entero."
+    ],
+    "estimated_hours": 5
+  },
+  {
+    "id": "SMX-04",
+    "title": "Normalización Dinámica y Coercitiva de Formatos de Fecha de la SSA",
+    "milestone": "Milestone 2: Limpieza y Normalización Canónica",
+    "priority": "Alta",
+    "status": "Pendiente",
+    "description": "Crear un validador y parser robusto de fechas multiformato en Python/Pandas para unificar las fechas de ingreso y egreso hospitalario a un formato canónico YYYY-MM-DD compatible con PostgreSQL DATE.",
+    "subtasks": [
+      "Crear utilería 'clean_ssa_dates' para remover nulos textuales como '  /  /    '.",
+      "Configurar parseo flexible (formato mixto de Pandas o lista de patrones Regex) para cubrir DD/MM/YYYY, YYYY-MM-DD e ints YYYYMMDD.",
+      "Coercer fechas imposibles a NaN y eliminar registros sin fecha de egreso válida."
+    ],
+    "estimated_hours": 5
+  },
+  {
+    "id": "SMX-05",
+    "title": "Preservación Geográfica de Códigos Catastrales de Unidades (CLUES)",
+    "milestone": "Milestone 2: Limpieza y Normalización Canónica",
+    "priority": "Alta",
+    "status": "Pendiente",
+    "description": "Evitar la pérdida sistemática de ceros a la izquierda en variables geográficas (Entidad Federativa y Municipio) que rompen los cruces del catálogo maestro de la SSA e INEGI.",
+    "subtasks": [
+      "Forzar tipo de dato de entrada a string para 'entidad_id' y 'municipio_id'.",
+      "Aplicar padding numérico de forma canónica: zfill(2) para Entidades y zfill(3) para Municipios.",
+      "Implementar pruebas de calidad de datos para asegurar que no existan entidades con longitud menor a 2 ni municipios menores a 3 dígitos."
+    ],
+    "estimated_hours": 4
+  },
+  {
+    "id": "SMX-06",
+    "title": "Despliegue de DDL e Infraestructura de Esquema de Estrella en Postgres",
+    "milestone": "Milestone 3: Modelado Dimensional y Carga",
+    "priority": "Alta",
+    "status": "Pendiente",
+    "description": "Inicializar el Data Warehouse relacional aplicando el script schema.sql para crear el esquema 'core', las tablas de dimensiones normalizadas, la tabla de hechos 'fact_egresos_hospitalarios', índices B-Tree y llaves foráneas.",
+    "subtasks": [
+      "Validar el orden de creación del script schema.sql para evitar colisiones de dependencias de llaves foráneas.",
+      "Ejecutar script DDL en la base de datos PostgreSQL mediante script Python o cliente SQL.",
+      "Crear tablas de staging auxiliares ('staging.stg_saeh' y 'staging.stg_clues') para retención intermedia."
+    ],
+    "estimated_hours": 4
+  },
+  {
+    "id": "SMX-07",
+    "title": "Desarrollo del Pipeline de Carga Incremental/Upsert (Staging a Core)",
+    "milestone": "Milestone 3: Modelado Dimensional y Carga",
+    "priority": "Alta",
+    "status": "Pendiente",
+    "description": "Programar la lógica de inserción relacional controlada en Dagster para mover datos de Staging al esquema Core, utilizando sentencias UPSERT (INSERT ... ON CONFLICT) para evitar la duplicidad de registros.",
+    "subtasks": [
+      "Configurar recurso SQLAlchemy de conexión segura en Dagster.",
+      "Desarrollar asset de carga 'load_data_warehouse' para poblar las dimensiones secundarias primero (CIE10, Geografía, Sexo, etc.).",
+      "Escribir bloque de upsert para 'dim_clues' que actualice las métricas de capacidad (camas, médicos, enfermeras) si la CLUES ya existe.",
+      "Cargar la tabla 'fact_egresos_hospitalarios' cruzando llaves sustitutas y foráneas de manera eficiente."
+    ],
+    "estimated_hours": 8
+  },
+  {
+    "id": "SMX-08",
+    "title": "Conexión Analítica de Power BI y Modelado ALOS",
+    "milestone": "Milestone 4: Analítica y Modelado Predictivo",
+    "priority": "Media",
+    "status": "Pendiente",
+    "description": "Conectar Power BI Desktop al esquema Core de PostgreSQL local, estructurar el modelo de datos relacional y construir visualizaciones ejecutivas para la toma de decisiones clínicas.",
+    "subtasks": [
+      "Configurar conector de base de datos PostgreSQL en Power BI en modo Importación.",
+      "Estructurar visualmente el modelo de datos respetando la relación 1-a-N del Star Schema.",
+      "Escribir medidas DAX fundamentales: Ocupación Promedio, Tiempo Promedio de Estancia (ALOS = SUM(dias_estancia)/COUNT(id_egreso)), y Tasa de Complicaciones.",
+      "Crear layouts con visualizaciones de mapas interactivos por Entidad y gráficos de tendencia de ocupación."
+    ],
+    "estimated_hours": 6
+  },
+  {
+    "id": "SMX-09",
+    "title": "Diseño y Entrenamiento del Modelo Predictivo de Estancia Hospitalaria",
+    "milestone": "Milestone 4: Analítica y Modelado Predictivo",
+    "priority": "Media",
+    "status": "Pendiente",
+    "description": "Desarrollar un flujo de ciencia de datos en Python para extraer microdatos clínicos, realizar feature engineering (diagnósticos CIE-10 agregados y variables demográficas) y entrenar un modelo de regresión (e.g. Random Forest o XGBoost) que estime el tiempo de estancia hospitalaria de los pacientes.",
+    "subtasks": [
+      "Crear script de preparación que unifique el registro clínico con atributos de la unidad (CLUES) y el grupo de CIE-10.",
+      "Implementar encoding One-Hot para diagnósticos principales agrupados y variables demográficas del paciente.",
+      "Entrenar un regresor para predecir 'dias_estancia' y evaluar métricas de desempeño (MAE, RMSE, R²).",
+      "Exportar el modelo entrenado en formato serializado (.pkl) para uso en servicios externos o dentro del pipeline."
+    ],
+    "estimated_hours": 8
+  }
+]

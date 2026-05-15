@@ -1,0 +1,39 @@
+name: saludmx
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  # ── Extracción de archivos SSA (los 3 engines necesarios para XLS/XLSX/HTML-XLS) ──
+  - xlrd=2.0.*              # legacy .xls binario BIFF (SAEH y CLUES en formato DGIS)
+  - openpyxl                # .xlsx (versiones modernas de catálogos)
+  - lxml                    # HTML-as-.xls exportado por portales web del DGIS
+  # ── Procesamiento de datos ────────────────────────────────────────────────────────
+  - pandas>=2.0             # pipeline principal ETL + Gold layer
+  - numpy
+  - polars>=0.20            # Bronze y Silver layers (alto rendimiento, lazy eval)
+  - pyarrow>=14.0           # formato Parquet entre capas; requerido por polars
+  - fastexcel>=0.11         # engine "calamine" para polars.read_excel() — .xlsx nativo
+  - duckdb>=1.1             # motor SQL embebido para validaciones cross-file locales
+  - python-duckdb>=1.1      # módulo `import duckdb` para scripts locales y smoke tests
+  # ── PostgreSQL — Data Warehouse ───────────────────────────────────────────────────
+  - sqlalchemy>=2.0         # ORM + abstracción para UPSERT dimensional
+  - alembic>=1.13           # migraciones versionadas del schema
+  # ── Ciencia de Datos — Modelo predictivo de estancia ─────────────────────────────
+  - scikit-learn>=1.3       # feature engineering, Random Forest / regresión lineal
+  - rapidfuzz>=3.0          # fuzzy matching para entity resolution (CIE-10 / CLUES)
+  - matplotlib>=3.7         # visualizaciones EDA del modelo
+  - seaborn>=0.13           # heatmaps de correlación y distribuciones
+  - jupyterlab              # análisis exploratorio interactivo
+  - ipykernel
+  # ── Testing ───────────────────────────────────────────────────────────────────────
+  - pytest
+  - pytest-cov
+  - pip:
+      - dagster==1.13.2
+      - dagster-webserver==1.13.2
+      - dagster-postgres==0.29.2
+      - python-dotenv>=1.0.0
+      - psycopg[binary]>=3.1
+      - lightgbm>=4.3        # regresor de alto rendimiento para predecir días de estancia

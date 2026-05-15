@@ -1,0 +1,24 @@
+# Datos crudos — nunca en la imagen Docker
+data_raw/
+logs/
+output/
+
+# Git y herramientas de desarrollo
+.git/
+.github/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+
+# Entorno y secrets
+.env
+*.env
+
+# Notebooks y archivos temporales
+notebooks/
+*.ipynb
+temp_*
+
+# Volumen de almacenamiento de Dagster
+platform/orchestration/dagster/dagster_home/storage/
